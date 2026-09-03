@@ -1,8 +1,19 @@
+using Microsoft.EntityFrameworkCore;
+using TennisMatchmaker.Data;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+
+// db context
+var connString = "DefaultConnection";
+builder.Services.AddDbContext<TennisDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString(connString)));
+
+
+
 
 var app = builder.Build();
 
