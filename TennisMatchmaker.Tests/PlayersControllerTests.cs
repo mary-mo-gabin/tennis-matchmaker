@@ -1,4 +1,15 @@
-﻿namespace TennisMatchmaker.Tests;
+﻿using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using TennisMatchmaker.Controllers;
+using TennisMatchmaker.Data;
+using TennisMatchmaker.Dtos;
+using TennisMatchmaker.Models;
+using Xunit;
+
+namespace TennisMatchmaker.Tests;
 
 public class PlayerControllerTests
 {
@@ -96,7 +107,7 @@ public class PlayerControllerTests
         // Assert - Bob is in group 2; only Alice should come back for group 1
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var players = Assert.IsAssignableFrom<List<PlayerDto>>(okResult.Value);
-        Assert.Single(players);\
+        Assert.Single(players);
         Assert.Equal("Alice", players[0].Name);
     }
 
@@ -121,7 +132,7 @@ public class PlayerControllerTests
         );
 
         // Act 
-        var result = await controller.updatePlayer(1, dto);
+        var result = await controller.UpdatePlayer(1, dto);
 
         // Assert
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
@@ -135,7 +146,7 @@ public class PlayerControllerTests
     {
         // Arrange
         using var db = CreateContext();
-        var controller = new PlayerController(db);
+        var controller = new PlayersController(db);
         var dto = new UpdatePlayerDto(
             "Ghost",
             "Male",
@@ -171,4 +182,6 @@ public class PlayerControllerTests
         Assert.IsType<NoContentResult>(result);
         Assert.Empty(db.Players);
     }
+
+
 }
