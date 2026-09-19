@@ -183,5 +183,118 @@ public class PlayerControllerTests
         Assert.Empty(db.Players);
     }
 
+    [Fact]
+    public async Task AddToGroup_CreateMembership()
+    {
+        // Arrange
+        using var db = CreateContext();
+        db.Players.Add(new Player
+        {
+            Id = 1,
+            Name = "Alice",
+            Gender = Gender.Female,
+            SkillLevel = 3.0
+        });
+        db.Groups.Add(new Group { 
+            Id = 2, 
+            Name = "Group B", 
+            LeaderId = 1
+        });
+        await db.SaveChangesAsync();
+        var controller = new PlayersController(db);
 
+        // Act
+        var result = await controller.AddToGroup(1, 2);
+
+        // Assert
+        Assert.IsType<NoContentResult>(result);
+        var membership = await db.GroupMemberships.SingleAsync();
+        Assert.Equal(1, membership.PlayerId);
+        Assert.Equal(2, membership.GroupId);
+    }
+
+    [Fact]
+    public async Task AddToGroup_ReturnsConflict_WhenAlreadyMember()
+    {
+        // Arrange
+        using var db = CreateContext();
+        db.Players.Add(new Player
+        {
+            Id = 1,
+            Name = "Alice",
+            Gender = Gender.Female,
+            SkillLevel = 3.0
+        });
+        db.GroupMemberships.Add(new GroupMembership
+        {
+            PlayerId = 1, 
+            GroupId = 2
+        });
+        await db.SaveChangesAsync();
+        var controller = new PlayersController(db);
+
+        // Act
+        var result = await controller.AddToGroup(1, 2);
+
+        // Assert
+        Assert.IsType<ConflictObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task RemoveFromGroup_DeletesMembership()
+    {
+        // Arrange
+        using var db = CreateContext();
+        db.GroupMemberships.Add(new GroupMembership
+        {
+            PlayerId = 1,
+            GroupId = 2
+        });
+        await db.SaveChangesAsync();
+        var controller = new PlayersController(db);
+
+        // Act
+        var result = await controller.RemoveFromGroup(1, 2);
+
+        // Assert
+        Assert.IsType<NoContentResult>(result);
+        Assert.Empty(db.GroupMemberships);
+    }
+
+    [Fact]
+    public async Task GetPlayerGroups_ReturnsGroupsPlayerBelongsTo()
+    {
+        // Arrange
+        using var db = CreateContext();
+        db.Groups.AddRange(
+            new Group
+            {
+                Id = 1,
+                Name = "Group A", 
+                LeaderId = 1
+            },
+            new Group
+            {
+                Id = 2,
+                Name = "Group B", 
+                LeaderId = 1
+            }
+        );
+        db.GroupMemberships.Add(new GroupMembership
+        {
+            PlayerId = 1,
+            GroupId = 1
+        });
+        await db.SaveChangesAsync();
+        var controller = new PlayersController(db);
+
+        // Act
+        var result = await controller.GetPlayerGroups(1);
+        
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result.Result);
+        var groups = Assert.IsAssignableFrom<List<GroupDto>>(okResult.Value);
+        Assert.Single(groups);
+        Assert.Equal("Group A", groups[0].Name);
+    }
 }
