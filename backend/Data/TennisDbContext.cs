@@ -54,6 +54,15 @@ namespace TennisMatchmaker.Data
                 .Property(p => p.SkillLevel)
                 .HasPrecision(3, 1);
 
+            // Defense-in-depth: even though groups are soft-deleted via IsActive
+            // (not actually removed), this stops a direct/manual DELETE on Groups 
+            // from cascading and wiping out historical Sessions.
+            modelBuilder.Entity<Session>()
+                .HasOne(s => s.Group)
+                .WithMany(g => g.Sessions)
+                .HasForeignKey(s => s.GroupId)
+                .OnDelete(DeleteBehavior.Restrict);
+
         }
     }
 }
