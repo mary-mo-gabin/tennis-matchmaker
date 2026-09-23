@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TennisMatchmaker.Data;
@@ -11,9 +12,11 @@ using TennisMatchmaker.Data;
 namespace TennisMatchmaker.Api.Migrations
 {
     [DbContext(typeof(TennisDbContext))]
-    partial class TennisDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260923212028_SeededData")]
+    partial class SeededData
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
