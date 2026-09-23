@@ -4,5 +4,6 @@ public record PlayerDto(
     int Id,
     string Name,
     string Gender,
-    double SkillLevel
+    double SkillLevel,
+    bool IsActive
 );

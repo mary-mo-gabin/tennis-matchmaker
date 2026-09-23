@@ -1,4 +1,7 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TennisMatchmaker.Data;
@@ -9,23 +12,27 @@ namespace TennisMatchmaker.Controllers
 {
     [ApiController]
     [Route("api/players")]
-
     public class PlayersController : ControllerBase
     {
         private readonly TennisDbContext _db;
         public PlayersController(TennisDbContext db) => _db = db;
 
         [HttpGet]
-        public async Task<ActionResult<System.Collections.Generic.List<PlayerDto>>> GetPlayers([FromQuery] int groupId)
+        public async Task<ActionResult<List<PlayerDto>>> GetPlayers([FromQuery] int groupId, [FromQuery] bool includeInactive = false)
         {
-            var players = await _db.Players
-                .Where(p => p.GroupMemberships.Any(gm => gm.GroupId == groupId))
+            var query = _db.Players.Where(p => p.GroupMemberships.Any(gm => gm.GroupId == groupId));
+            if (!includeInactive) // only show active players
+                query =query.Where(p => p.IsActive);
+
+            var players = await query
                 .Select(p => new PlayerDto(
                     p.Id, 
                     p.Name, 
                     p.Gender.ToString(), 
-                    p.SkillLevel
+                    p.SkillLevel,
+                    p.IsActive
                 ))
+                .AsNoTracking()
                 .ToListAsync();
             return Ok(players);
         }
@@ -41,7 +48,7 @@ namespace TennisMatchmaker.Controllers
             };                      // not saved to DB yet - player.Id is still 0
 
             foreach (var groupId in dto.GroupIds)
-                player.GroupMemberships.Add(new GroupMembership { GroupId = groupId});        // each GroupMembership is "attached" to this Player object in memory, via the collection - but nothing has PlayerId set yet, and player.Id is still 0
+                player.GroupMemberships.Add(new GroupMembership { GroupId = groupId });        // each GroupMembership is "attached" to this Player object in memory, via the collection - but nothing has PlayerId set yet, and player.Id is still 0
 
             _db.Players.Add(player);            // tells EF Core to track this whole object graph
             await _db.SaveChangesAsync();       // EF Core figures out the actual INSERT order and IDs
@@ -50,7 +57,8 @@ namespace TennisMatchmaker.Controllers
                 player.Id, 
                 player.Name, 
                 player.Gender.ToString(), 
-                player.SkillLevel
+                player.SkillLevel,
+                player.IsActive
             ));
         }
 
@@ -69,20 +77,34 @@ namespace TennisMatchmaker.Controllers
                 player.Id, 
                 player.Name, 
                 player.Gender.ToString(), 
-                player.SkillLevel
+                player.SkillLevel,
+                player.IsActive
             ));
         }
 
+        // Soft delete: existing Matches/pairingHistory/SessionPlayer rows referencing 
+        // this player stay resolvable (the Player row - and their name - still exists), 
+        // they just won't appear when building a new session.
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeletePlayer(int id)
+        public async Task<IActionResult> DeactivatePlayer(int id)
         {
             var player = await _db.Players.FindAsync(id);
             if (player == null) return NotFound();
 
-            _db.Players.Remove(player);
+            player.IsActive = false;
             await _db.SaveChangesAsync();
-            
             return NoContent();   
+        }
+
+        [HttpPost("{id}/reactivate")]
+        public async Task<IActionResult> ReactivatePlayer(int id)
+        {
+            var player = await _db.Players.FindAsync(id);
+            if (player == null) return NotFound();
+
+            player.IsActive = true;
+            await _db.SaveChangesAsync();
+            return NoContent();
         }
 
         [HttpGet("{id}/groups")]
@@ -93,10 +115,11 @@ namespace TennisMatchmaker.Controllers
                 .Select(gm => new GroupDto(
                     gm.Group!.Id, 
                     gm.Group.Name,
-                    gm.Group.LeaderId
+                    gm.Group.LeaderId,
+                    gm.Group.IsActive
                 ))
+                .AsNoTracking()
                 .ToListAsync();
-            
             return Ok(groups);
         }
 
@@ -105,6 +128,10 @@ namespace TennisMatchmaker.Controllers
         {
             var playerExists = await _db.Players.AnyAsync(p => p.Id == id);
             if (!playerExists) return NotFound();
+
+            var group = await _db.Groups.FindAsync(groupId);
+            if (group == null) return NotFound();
+            if (!group.IsActive) return Conflict("Cannot add a player to an inactive group.");
 
             var alreadyMember = await _db.GroupMemberships
                 .AnyAsync(gm => gm.PlayerId == id && gm.GroupId == groupId);
