@@ -9,6 +9,7 @@ public class Match
     public Round? Round { get; set; }
     public int CourtNumber { get; set; }
     public MatchType MatchType { get; set; }
+    
     public int TeamAPlayer1Id { get; set; }
     public int TeamAPlayer2Id { get; set; }
     public int TeamBPlayer1Id { get; set; }
